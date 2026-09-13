@@ -1,0 +1,220 @@
+
+{
+  "name": "AI Email Triage Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 10,
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "Label_6974327660120236192"
+          ],
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "8e29d1c1-5d4f-4c1a-8e95-478380fbaafa",
+      "name": "Get many messages",
+      "webhookId": "a0546e30-f98d-41af-a9b3-6263742a8468",
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c59c6092-369e-4396-a3cb-8085f884b2a1",
+              "name": "customer_name",
+              "value": "={{ $json.from.value[0].name || $json.from.text }}",
+              "type": "string"
+            },
+            {
+              "id": "43a4c50f-3d69-41bb-9420-35d04d464820",
+              "name": "customer_email",
+              "value": "={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "3b54ec59-b96d-4dca-8ce0-485ca797ac9f",
+              "name": "email_subject",
+              "value": "={{ $json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "3483d520-cc71-44cf-a28f-46db2ba3be5e",
+              "name": "email_body",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "7109e558-5096-4ae0-9c89-80ee9f64046c",
+              "name": "email_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "34758e14-3b9e-4c0c-9eb7-6c0296e68f3c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=?",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Tu única tarea es analizar el email, comprender su contexto y determinar la clasificación más adecuada. Antes de elegir la categoría, prioridad y canal, evaluá el mensaje completo y la relación entre la información que contiene. No clasifiques únicamente por palabras clave aisladas, esto es sumamente importante para un resumen de ayuda para la persona, precisamente es el proposito de esta automatizacion, que de primera vista pueda ver de que trata.\\n\\nPRIORIDAD DE LA INFORMACIÓN:\\n\\nEl CUERPO DEL EMAIL es la fuente principal para determinar la intención, categoría y prioridad de la consulta.\\n\\nEl ASUNTO NO debe utilizarse para determinar por sí solo la categoría ni la prioridad. Debe considerarse únicamente como contexto secundario y complementario.\\n\\nSi el asunto y el cuerpo contienen información diferente, contradictoria o con distinto nivel de detalle, priorizá siempre la información y la intención expresada en el CUERPO DEL EMAIL.\\n\\nLos asuntos pueden ser breves, ambiguos, genéricos, automáticos, exagerados o no representar correctamente la intención real del cliente. Por este motivo, no permitas que el asunto determine o sesgue la clasificación.\\n\\nSolo utilizá información del asunto para complementar el resumen cuando sea coherente con el contenido del cuerpo y aporte información relevante que ayude a comprender la consulta.\\n\\nLa clasificación debe basarse principalmente en lo que el cliente solicita, necesita o expresa en el cuerpo del mensaje, independientemente de cómo esté redactado el asunto.\\n\\nDevolvé EXACTAMENTE un JSON válido, sin markdown, sin explicaciones ni texto adicional, con esta estructura:\\n{\\n  \\\"resumen\\\": [\\\"punto 1\\\", \\\"punto 2\\\", \\\"punto 3\\\"],\\n  \\\"categoria\\\": \\\"[CATEGORÍA]\\\",\\n  \\\"prioridad\\\": \\\"[PRIORIDAD]\\\",\\n  \\\"slack_channel\\\": \\\"[CANAL]\\\"\\n}\\n\\nDonde:\\n[CATEGORÍA] debe ser UNA de estas opciones:\\n\\\"Soporte Técnico\\\", \\\"Reventa\\\", \\\"Ventas\\\", \\\"Otros\\\".\\n\\n[PRIORIDAD] debe ser UNA de estas opciones:\\n\\\"Alta\\\", \\\"Media\\\", \\\"Baja\\\".\\n\\n[CANAL] debe ser UNA de estas opciones según la categoría:\\n\\\"technical-support\\\" → para \\\"Soporte Técnico\\\"\\n\\\"resale\\\" → para \\\"Reventa\\\"\\n\\\"sales\\\" → para \\\"Ventas\\\"\\n\\\"other-queries\\\" → para \\\"Otros\\\"\\n\\nREGLAS DE CLASIFICACIÓN:\\n\\n\\\"Soporte Técnico\\\" corresponde a consultas sobre funcionamiento, especificaciones, compatibilidad, instalación, configuración, garantía o problemas técnicos de productos.\\n\\n\\\"Reventa\\\" corresponde a consultas de negocios o personas interesadas en comprar productos al por mayor para revender, convertirse en revendedor o conocer condiciones y precios mayoristas.\\n\\n\\\"Ventas\\\" corresponde a consultas relacionadas con precios, cotizaciones, disponibilidad, cantidades, pedidos o intención de compra para uso propio.\\n\\nSi el cliente solicita explícitamente comprar un producto nuevo o un reemplazo, clasificá como \\\"Ventas\\\", incluso si también menciona una falla técnica, siempre se le da prioridad a una posible venta segun el contexto del mensaje.\\n\\n\\\"Otros\\\" corresponde a consultas que no encajen claramente en las categorías anteriores.\\n\\nSi una consulta contiene elementos de más de una categoría, analizá cuál es la intención o necesidad principal y elegí la categoría que mejor represente la acción que debería realizar el equipo que recibe el mensaje.\\n\\nEn caso de conflicto entre Soporte Técnico y Ventas, una solicitud explícita de compra de un producto nuevo o reemplazo debe clasificarse como \\\"Ventas\\\".\\n\\nEn caso de conflicto entre Ventas y Reventa, clasificá como \\\"Reventa\\\" cuando el objetivo explícito sea comprar para revender, convertirse en revendedor o acceder a condiciones mayoristas para reventa. Clasificá como \\\"Ventas\\\" cuando la compra sea para uso propio.\\n\\nREGLAS DE PRIORIDAD:\\n\\nLa prioridad debe reflejar qué tan importante o inmediata es la atención que requiere la consulta, considerando el contexto completo del email.\\n\\n\\\"Alta\\\" corresponde a situaciones que requieren atención prioritaria, por ejemplo:\\n\\n- El cliente indica explícitamente que necesita una respuesta, solución, producto o cotización con urgencia o dentro de un plazo cercano.\\n- Existe un problema que impide realizar una actividad importante para el cliente y requiere atención.\\n- El cliente necesita resolver una situación para poder continuar operando.\\n- Existe una solicitud comercial que, por el contexto explícito del mensaje, requiere atención prioritaria.\\n\\n\\\"Media\\\" corresponde a consultas que requieren seguimiento o una respuesta para poder avanzar, pero que no presentan una urgencia o impacto claramente prioritario.\\n\\n\\\"Baja\\\" corresponde a consultas generales, informativas o exploratorias que no requieren una respuesta inmediata ni una acción prioritaria.\\n\\nLa prioridad debe determinarse a partir del contexto del email y no únicamente por la presencia de palabras como \\\"urgente\\\", \\\"problema\\\", \\\"precio\\\" o \\\"importante\\\".\\n\\nNo asumas que una consulta es de alta prioridad solamente porque menciona una empresa, una compra, un problema técnico o una cantidad elevada de productos.\\n\\nNo inventes urgencia, impacto, presupuesto, volumen de compra ni importancia comercial que no pueda determinarse a partir del email.\\n\\nREGLAS DEL RESUMEN:\\n\\n\\\"resumen\\\" debe contener EXACTAMENTE 3 puntos breves y concretos que sinteticen la información más útil del email para la persona o equipo que deberá responderlo.\\n\\nEl resumen es únicamente una síntesis de la información relevante del mensaje. No debe incluir análisis, recomendaciones, justificaciones de la clasificación ni opiniones del clasificador.\\n\\nLos 3 puntos deben priorizar, cuando estén disponibles:\\n\\n- Qué necesita o solicita el cliente.\\n- Producto, servicio, cantidad o situación involucrada.\\n- Información relevante para responder, como urgencia explícita, presupuesto mencionado, datos de contacto, ubicación, contexto del negocio, problema técnico o cualquier otro dato importante.\\n\\nLos puntos deben ser breves, pero no deben omitir información relevante únicamente para mantenerlos cortos. Un punto puede ocupar más de una línea si es necesario para transmitir correctamente información importante del email.\\n\\nNo inventes información ni completes datos que no estén presentes en el email.\\n\\nSi un dato no aparece en el email, simplemente no lo incluyas.\\n\\nPara correos automáticos, notificaciones o mensajes informativos, resumí únicamente el contenido principal del mensaje.\\n\\nREGLAS GENERALES:\\n\\nBasate únicamente en la información disponible en el email.\\n\\nAnalizá el contenido completo del mensaje y su contexto antes de tomar una decisión. No bases la clasificación únicamente en palabras clave aisladas.\\n\\nElegí siempre una sola categoría, una sola prioridad y un solo canal.\\n\\nEl canal debe corresponder exactamente a la categoría seleccionada.\\n\\nSi existe información ambigua, utilizá el contexto disponible para tomar la decisión más razonable y coherente con estas reglas, sin inventar información.\\n\\nDATOS DEL EMAIL:\\nDe: {{ JSON.stringify($json.customer_email).slice(1, -1) }}\\nAsunto: {{ JSON.stringify($json.email_subject).slice(1, -1) }}\\nCuerpo: {{ JSON.stringify($json.email_body).slice(1, -1) }}\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        704,
+        0
+      ],
+      "id": "93e2e86a-7bdb-451c-b12d-fb2fd5f675c3",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Datos originales del nodo Edit Fields\nconst emailData = $('Edit Fields').first().json;\n\nconst customerName = (emailData.customer_name || \"\").replace(/^=/, \"\").trim();\nconst customerEmail = (emailData.customer_email || \"\").replace(/^=/, \"\").trim();\nconst emailSubject = (emailData.email_subject || \"\").replace(/^=/, \"\").trim();\n\n// 2. Respuesta de Gemini\nconst geminiData = $input.first().json;\nlet rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || \"\";\n\nrawText = rawText\n  .replace(/```json/gi, \"\")\n  .replace(/```/g, \"\")\n  .trim();\n\n// 3. Parsear respuesta JSON\nlet aiResult = {};\nlet parseError = false;\n\ntry {\n  aiResult = JSON.parse(rawText);\n} catch (error) {\n  parseError = true;\n  aiResult = {\n    categoria: \"Error de Parseo\",\n    prioridad: \"Alta\",\n    resumen: [\"La IA no pudo analizar el email correctamente\"],\n    slack_channel: \"#errores-n8n\"\n  };\n}\n\nconst categoria = aiResult.categoria || \"No clasificado\";\nconst prioridad = aiResult.prioridad || \"Alta\";\nlet resumen = aiResult.resumen || [\"No se pudo generar resumen\"];\nconst slackChannel = aiResult.slack_channel || \"#errores-n8n\";\n\nif (!Array.isArray(resumen)) {\n  resumen = [resumen];\n}\n\n// 4. Construir el mensaje de Slack\nlet slackMessage;\n\nif (parseError) {\n  // Mensaje de error\n  slackMessage = ` *Error al procesar email*\n\n*De:* ${customerName || \"No disponible\"}\n*Email:* ${customerEmail ? `<mailto:${customerEmail}|${customerEmail}>` : \"No disponible\"}\n*Asunto:* ${emailSubject}\n\n*Problema:* La IA no pudo analizar este email. Revisar manualmente.\n\n*Respuesta cruda de la IA:*\n\\`\\`\\`\n${rawText}\n\\`\\`\\`\n\n_Automated with this n8n workflow_`;\n} else {\n  // Mensaje normal\n  slackMessage = `*Nueva consulta recibida*\n\n*De:* ${customerName || \"No disponible\"}\n*Email:* ${customerEmail ? `<mailto:${customerEmail}|${customerEmail}>` : \"No disponible\"}\n*Asunto:* ${emailSubject}\n\n*Categoría:* ${categoria}\n*Prioridad:* ${prioridad}\n\n*Resumen:*\n${resumen.map(item => `• ${item}`).join(\"\\n\")}\n\n_Automated with this n8n workflow_`;\n}\n\nreturn [\n  {\n    json: {\n      customer_name: customerName,\n      customer_email: customerEmail,\n      email_subject: emailSubject,\n      categoria: categoria,\n      prioridad: prioridad,\n      resumen: resumen,\n      slack_channel: slackChannel,\n      slack_message: slackMessage\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        0
+      ],
+      "id": "055da0a6-291f-4125-bdf1-dd819b0022d6",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.slack_channel }}"
+        },
+        "text": "=*Nueva consulta recibida*\n\n*De:* {{ $json.customer_name }}\n*Email:* <mailto:{{ $json.customer_email }}|{{ $json.customer_email }}>\n*Asunto:* {{ $json.email_subject }}\n*Categoría:* {{ $json.categoria }}\n*Prioridad:* {{ $json.prioridad }}\n\n*Resumen:*\n• {{ $json.resumen.join('\\n• ') }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "18fb3dbd-fe73-4f9e-a0fa-e25c13845a67",
+      "name": "Send a message",
+      "webhookId": "83a8cd1f-3848-449d-8b7f-bd3d3f41243f",
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1c924edb-d9cf-4519-8301-1fe592a172e6",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0c29c921-1bf8-44e1-99de-ac00dc67c1db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "491db91ff787ecc93b21ecddff293ced3f48ef1bc6e6067771791a1d610e8ce5"
+  },
+  "nodeGroups": [],
+  "id": "ALQHwrBn9ouaIW8i",
+  "tags": []
+}
