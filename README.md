@@ -182,6 +182,8 @@ Resumen:
 
 A continuación se muestra un ejemplo completo del flujo, desde el email recibido hasta su clasificación y envío a Slack.
 
-![Ejemplo de ejecución](assets/execution_demo/CASE-001-reemplazo-urgente-de-servidor.png)
+<p align="center">
+  <img src="assets/execution-demo/CASE-001-servidor-quemado-urgente.png" alt="Ejemplo de ejecución" width="700">
+</p>
 
-Ver todos los casos en [Execution Demos](assets/execution_demo/).
+Ver todos los casos en [Execution Demos](assets/execution-demo/).
